@@ -4,59 +4,64 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-14 # Самый быстрый сервер
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: false # Отключаем стандартную загрузку
+          submodules: false # Отключаем, чтобы не упало на старте
 
-      - name: Reset and Fix Submodules
+      - name: Hard Reset Submodules
         run: |
-          # Принудительно заменяем ВСЕ ссылки на официальные в конфиге
+          # Принудительно заменяем ВСЕ ссылки на оригинальный Telegram
+          # Это решит проблему "fatal: could not read Username"
           if [ -f .gitmodules ]; then
             sed -i '' 's|url = ../|url = https://github.com/TelegramMessenger/|g' .gitmodules
             sed -i '' 's|https://github.com/web-pentest/|https://github.com/TelegramMessenger/|g' .gitmodules
           fi
           
-          # Очистка и жесткое обновление
+          # Очищаем старые битые связи
           git submodule deinit -f . || true
+          git submodule sync
+          
+          # Качаем модули заново из правильных источников
           git submodule update --init --recursive --depth 1
-          echo "Submodules are now pointing to TelegramMessenger and downloaded."
+          echo "Submodules are fixed!"
 
-      - name: Add Your Branding
+      - name: Personal Branding (web-pentest)
         run: |
-          # Вписываем твой ник прямо в файл версии, это точно не сломает сборку
-          echo "Created by web-pentest (@sudo_pacman_s)" > AUTHOR.txt
-          # Пытаемся заменить текст в приложении
-          sed -i '' 's/Telegram/TPickMe by web-pentest/g' Telegram/Telegram-iOS/Resources/Settings.About || true
+          # Меняем текст в настройках на твои данные
+          # Это заменит заголовок "About" на твой ник и телеграм
+          find . -name "Localizable.strings" -exec sed -i '' 's/"Settings.About" = "About";/"Settings.About" = "Created by web-pentest (tg: @sudo_pacman_s)";/g' {} +
+          echo "Branding applied: @sudo_pacman_s"
 
-      - name: Install Build Tools
+      - name: Install Dependencies
         run: |
           brew install bazelisk cmake ninja
           pip3 install --user requests
 
-      - name: Setup API Keys
+      - name: Setup Configuration
         run: |
-          # Создаем файл конфигурации с твоими ключами
           mkdir -p build-system/Make
           echo "api_id = 35863075" > build-system/Make/LocalConfiguration.py
           echo "api_hash = \"33ce87c95e3caa7f07ea49e0bb01e114\"" >> build-system/Make/LocalConfiguration.py
 
-      - name: Build App (The Heavy Lift)
+      - name: Run Build
         run: |
-          # Запуск самой сборки
+          # Запуск основного процесса
           python3 build-system/Make/Make.py \
             --bundle_id="com.webpentest.tpickme" \
             --api_id="35863075" \
             --api_hash="33ce87c95e3caa7f07ea49e0bb01e114" \
             build
+        env:
+          BAZELISK_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Result
+      - name: Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TPickMe-Artifacts
+          name: TPickMe-Build
           path: |
             build/artifacts/*.ipa
             *.log
