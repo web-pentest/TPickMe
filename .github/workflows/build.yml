@@ -50,15 +50,15 @@ jobs:
       - name: Setup API Keys
         run: |
           mkdir -p build-system/Make
-          echo "api_id = 35863075" > build-system/Make/LocalConfiguration.py
-          echo "api_hash = \"33ce87c95e3caa7f07ea49e0bb01e114\"" >> build-system/Make/LocalConfiguration.py
+          echo "api_id = " > build-system/Make/LocalConfiguration.py
+          echo "api_hash = \"\"" >> build-system/Make/LocalConfiguration.py
 
       - name: Build App
         run: |
           python3 build-system/Make/Make.py \
             --bundle_id="com.webpentest.tpickme" \
-            --api_id="35863075" \
-            --api_hash="33ce87c95e3caa7f07ea49e0bb01e114" \
+            --api_id="" \
+            --api_hash="" \
             build
 
       - name: Upload Result
