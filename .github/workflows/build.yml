@@ -1,10 +1,10 @@
 name: Build Telegram iOS (Custom)
 on:
-  workflow_dispatch: # Чтобы запустить кнопкой
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-13
+    runs-on: macos-latest # Используем самую свежую версию сервера
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -14,17 +14,12 @@ jobs:
 
       - name: Setup API Keys
         run: |
-          # Вшиваем твои ключи прямо в логику сборщика
           sed -i '' 's/api_id = .*/api_id = 35863075/g' build-system/Make/BuildConfiguration.py
           sed -i '' 's/api_hash = .*/api_hash = "33ce87c95e3caa7f07ea49e0bb01e114"/g' build-system/Make/BuildConfiguration.py
           echo "API Keys injected successfully."
 
-      - name: Install Bazel
-        run: brew install bazel
-
       - name: Build App
         run: |
-          # Запуск процесса компиляции
           python3 build-system/Make/Make.py \
             --bundle_id="com.webpentest.tpickme" \
             --api_id="35863075" \
