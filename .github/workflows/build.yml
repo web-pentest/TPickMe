@@ -4,13 +4,19 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest # Используем самую свежую версию сервера
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: recursive
-          fetch-depth: 0
+          submodules: false # Сначала скачиваем только основной код
+
+      - name: Fix and Sync Submodules
+        run: |
+          # Исправляем ссылки: заменяем относительные пути на прямые ссылки на TelegramMessenger
+          sed -i '' 's|url = ../|url = https://github.com/TelegramMessenger/|g' .gitmodules
+          git submodule update --init --recursive
+          echo "Submodules fixed and updated."
 
       - name: Setup API Keys
         run: |
@@ -25,3 +31,9 @@ jobs:
             --api_id="35863075" \
             --api_hash="33ce87c95e3caa7f07ea49e0bb01e114" \
             build
+
+      - name: Upload Result
+        uses: actions/upload-artifact@v4
+        with:
+          name: TPickMe-Installer
+          path: build/artifacts/*.ipa
