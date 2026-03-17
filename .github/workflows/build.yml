@@ -4,38 +4,48 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-14
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: false
+          submodules: false # Отключаем стандартную загрузку
 
-      - name: Fix Submodules and Links
+      - name: Reset and Fix Submodules
         run: |
-          # Исправляем пути к субмодулям
-          sed -i '' 's|url = ../|url = https://github.com/TelegramMessenger/|g' .gitmodules
-          git submodule update --init --recursive
+          # Принудительно заменяем ВСЕ ссылки на официальные в конфиге
+          if [ -f .gitmodules ]; then
+            sed -i '' 's|url = ../|url = https://github.com/TelegramMessenger/|g' .gitmodules
+            sed -i '' 's|https://github.com/web-pentest/|https://github.com/TelegramMessenger/|g' .gitmodules
+          fi
+          
+          # Очистка и жесткое обновление
+          git submodule deinit -f . || true
+          git submodule update --init --recursive --depth 1
+          echo "Submodules are now pointing to TelegramMessenger and downloaded."
 
-      - name: Inject Creator Info (web-pentest)
+      - name: Add Your Branding
         run: |
-          # Меняем название в меню "О приложении"
-          # Ищем файлы локализации и вставляем твои данные
-          find . -name "Localizable.strings" -exec sed -i '' 's/"Settings.About"/"Created by web-pentest (tg: @sudo_pacman_s)"/g' {} +
-          echo "Creator branding applied: web-pentest"
+          # Вписываем твой ник прямо в файл версии, это точно не сломает сборку
+          echo "Created by web-pentest (@sudo_pacman_s)" > AUTHOR.txt
+          # Пытаемся заменить текст в приложении
+          sed -i '' 's/Telegram/TPickMe by web-pentest/g' Telegram/Telegram-iOS/Resources/Settings.About || true
+
+      - name: Install Build Tools
+        run: |
+          brew install bazelisk cmake ninja
+          pip3 install --user requests
 
       - name: Setup API Keys
         run: |
-          sed -i '' 's/api_id = .*/api_id = 35863075/g' build-system/Make/BuildConfiguration.py
-          sed -i '' 's/api_hash = .*/api_hash = "33ce87c95e3caa7f07ea49e0bb01e114"/g' build-system/Make/BuildConfiguration.py
+          # Создаем файл конфигурации с твоими ключами
+          mkdir -p build-system/Make
+          echo "api_id = 35863075" > build-system/Make/LocalConfiguration.py
+          echo "api_hash = \"33ce87c95e3caa7f07ea49e0bb01e114\"" >> build-system/Make/LocalConfiguration.py
 
-      - name: Install Dependencies
+      - name: Build App (The Heavy Lift)
         run: |
-          brew install cmake ninja
-          pip3 install --user requests
-
-      - name: Build App
-        run: |
+          # Запуск самой сборки
           python3 build-system/Make/Make.py \
             --bundle_id="com.webpentest.tpickme" \
             --api_id="35863075" \
@@ -43,10 +53,10 @@ jobs:
             build
 
       - name: Upload Result
-        if: always() # Загрузить логи даже если сборка упала
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TPickMe-Package
+          name: TPickMe-Artifacts
           path: |
             build/artifacts/*.ipa
             *.log
